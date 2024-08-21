@@ -26,7 +26,9 @@ find_package(OpenCV REQUIRED)
 # set(CMAKE_CXX_FLAGS "-frename-registers -Ofast -march=native -fopenmp -fPIC -Wno-deprecated -Wenum-compare") # no improvement
 
 #set(CMAKE_CXX_FLAGS "-fopenmp -fPIC -Wno-deprecated -Wenum-compare -Wno-ignored-attributes -std=c++17")
-set(CMAKE_CXX_FLAGS "-O3 -march=native -mtune=intel -msse4.2 -mavx2 -mfma -flto -fopenmp -fPIC -Wno-deprecated -Wenum-compare -Wno-ignored-attributes -std=c++17")
+#set(CMAKE_CXX_FLAGS "-O3 -march=native -mtune=intel -msse4.2 -mavx2 -mfma -flto -fopenmp -fPIC -Wno-deprecated -Wenum-compare -Wno-ignored-attributes -std=c++17")
+#issue https://github.com/atenpas/gpd/issues/141
+set(CMAKE_CXX_FLAGS "-O3 -mtune=intel -fopenmp -fPIC -Wno-deprecated -Wenum-compare -Wno-ignored-attributes -std=c++17")
 
 ## Specify additional locations of header files
 include_directories(include ${PCL_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS})
@@ -241,7 +243,8 @@ target_link_libraries(${PROJECT_NAME}_image_generator
   ${PROJECT_NAME}_hand_set
   ${PROJECT_NAME}_image_strategy
   ${PROJECT_NAME}_cloud
-${PROJECT_NAME}_eigen_utils)
+${PROJECT_NAME}_eigen_utils
+${OpenCV_LIBS})
 
 target_link_libraries(${PROJECT_NAME}_sequential_importance_sampling
   ${PROJECT_NAME}_grasp_detector)
