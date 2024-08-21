@@ -12,7 +12,7 @@ CandidatesGenerator::CandidatesGenerator(
 }
 
 void CandidatesGenerator::preprocessPointCloud(util::Cloud &cloud) {
-  printf("Processing cloud with %zu points.\n",
+  if (params_.verbose_) printf("Processing cloud with %zu points.\n",
          cloud.getCloudOriginal()->size());
 
   cloud.removeNans();
@@ -41,7 +41,7 @@ std::vector<std::unique_ptr<Hand>> CandidatesGenerator::generateGraspCandidates(
   // Find sets of grasp candidates.
   std::vector<std::unique_ptr<HandSet>> hand_set_list =
       hand_search_->searchHands(cloud_cam);
-  printf("Evaluated %d hand sets with %d potential hand poses.\n",
+  if (params_.verbose_) printf("Evaluated %d hand sets with %d potential hand poses.\n",
          (int)hand_set_list.size(),
          (int)(hand_set_list.size() * hand_set_list[0]->getHands().size()));
 

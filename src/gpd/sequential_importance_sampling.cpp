@@ -48,6 +48,8 @@ SequentialImportanceSampling::SequentialImportanceSampling(
   grasp_detector_ = std::make_unique<GraspDetector>(config_filename);
 
   int min_inliers = config_file.getValueOfKey<int>("min_inliers", 1);
+  verbose_ = config_file.getValueOfKey<bool>("verbose", true);
+
   clustering_ = std::make_unique<Clustering>(min_inliers);
 }
 
@@ -173,7 +175,7 @@ SequentialImportanceSampling::detectGrasps(util::Cloud &cloud) {
 
   // 4. Cluster the grasps.
   if (clustering_->getMinInliers() > 0) {
-    valid_grasps = clustering_->findClusters(valid_grasps);
+    valid_grasps = clustering_->findClusters(valid_grasps, false, verbose_);
   }
   printf("Final result: found %zu grasps.\n", valid_grasps.size());
   printf("Total runtime: %3.4fs\n.\n", omp_get_wtime() - t0);

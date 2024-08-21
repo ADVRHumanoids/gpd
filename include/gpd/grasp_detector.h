@@ -211,6 +211,8 @@ class GraspDetector {
   bool plot_clustered_grasps_;     ///< if clustered grasps are plotted
   bool plot_selected_grasps_;      ///< if selected grasps are plotted
 
+  bool verbose_;
+
   // filtering parameters
   bool cluster_grasps_;  ///< if grasps are clustered
   double min_aperture_;  ///< the minimum opening width of the robot hand

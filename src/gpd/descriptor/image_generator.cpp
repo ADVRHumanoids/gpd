@@ -5,11 +5,12 @@ namespace descriptor {
 
 ImageGenerator::ImageGenerator(const descriptor::ImageGeometry &image_geometry,
                                int num_threads, int num_orientations,
-                               bool is_plotting, bool remove_plane)
+                               bool is_plotting, bool remove_plane, bool verbose)
     : image_params_(image_geometry),
       num_threads_(num_threads),
       num_orientations_(num_orientations),
-      remove_plane_(remove_plane) {
+      remove_plane_(remove_plane),
+      verbose_(verbose) {
   image_strategy_ = descriptor::ImageStrategy::makeImageStrategy(
       image_geometry, num_threads_, num_orientations_, is_plotting);
 }
@@ -62,10 +63,10 @@ void ImageGenerator::createImages(
       nn_points_list[i] = point_list.slice(nn_indices);
     }
   }
-  printf("neighborhoods search time: %3.4f\n", omp_get_wtime() - t_slice);
+  if (verbose_) printf("neighborhoods search time: %3.4f\n", omp_get_wtime() - t_slice);
 
   createImageList(hand_set_list, nn_points_list, images_out, hands_out);
-  printf("Created %zu images in %3.4fs\n", images_out.size(),
+  if (verbose_) printf("Created %zu images in %3.4fs\n", images_out.size(),
          omp_get_wtime() - t0);
 }
 
@@ -120,10 +121,10 @@ void ImageGenerator::removePlane(const util::Cloud &cloud_cam,
       PointCloudRGBA::Ptr cloud(new PointCloudRGBA);
       extract.filter(*cloud);
       point_list = point_list.slice(indices);
-      printf("Removed plane from point cloud. %zu points remaining.\n",
+      if (verbose_) printf("Removed plane from point cloud. %zu points remaining.\n",
              cloud->size());
     } else {
-      printf("Plane fit failed. Using entire point cloud ...\n");
+      if (verbose_) printf("Plane fit failed. Using entire point cloud ...\n");
     }
   }
 }

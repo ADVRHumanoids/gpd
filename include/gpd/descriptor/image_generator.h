@@ -81,7 +81,7 @@ class ImageGenerator {
    */
   ImageGenerator(const descriptor::ImageGeometry &image_geometry,
                  int num_threads, int num_orientations, bool is_plotting,
-                 bool remove_plane);
+                 bool remove_plane, bool verbose = true);
 
   /**
    * \brief Create a list of grasp images for a given list of grasp candidates.
@@ -126,6 +126,7 @@ class ImageGenerator {
   std::unique_ptr<descriptor::ImageStrategy> image_strategy_;
   bool is_plotting_;
   bool remove_plane_;
+  bool verbose_;
 };
 
 }  // namespace descriptor

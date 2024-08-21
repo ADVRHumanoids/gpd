@@ -124,7 +124,7 @@ class Cloud {
   /**
    * \brief Constructor.
    */
-  Cloud();
+  Cloud(bool verbose = true);
 
   /**
    * \brief Constructor.
@@ -134,7 +134,7 @@ class Cloud {
    * \param view_points the origins of the cameras (size: 3 x k)
    */
   Cloud(const PointCloudRGB::Ptr &cloud, const Eigen::MatrixXi &camera_source,
-        const Eigen::Matrix3Xd &view_points);
+        const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Constructor.
@@ -145,7 +145,7 @@ class Cloud {
    */
   Cloud(const PointCloudPointNormal::Ptr &cloud,
         const Eigen::MatrixXi &camera_source,
-        const Eigen::Matrix3Xd &view_points);
+        const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Constructor for a two camera setup (left and right camera).
@@ -154,7 +154,7 @@ class Cloud {
    * \param view_points the origins of the cameras (size: 3 x k)
    */
   Cloud(const PointCloudRGB::Ptr &cloud, int size_left_cloud,
-        const Eigen::Matrix3Xd &view_points);
+        const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Constructor for a two cameras setup (left and right camera).
@@ -163,14 +163,14 @@ class Cloud {
    * \param view_points the origins of the cameras (size: 3 x k)
    */
   Cloud(const PointCloudPointNormal::Ptr &cloud, int size_left_cloud,
-        const Eigen::Matrix3Xd &view_points);
+        const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Constructor for point cloud files (*.pcd).
    * \param filename the location of the point cloud file
    * \param view_points the origins of the cameras (size: 3 x k)
    */
-  Cloud(const std::string &filename, const Eigen::Matrix3Xd &view_points);
+  Cloud(const std::string &filename, const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Constructor for point cloud files (*.pcd) from a two cameras setup.
@@ -181,7 +181,7 @@ class Cloud {
    * \param view_points the origins of the cameras (size: 3 x k)
    */
   Cloud(const std::string &filename_left, const std::string &filename_right,
-        const Eigen::Matrix3Xd &view_points);
+        const Eigen::Matrix3Xd &view_points, bool verbose = true);
 
   /**
    * \brief Remove NANs from the point cloud.
@@ -385,6 +385,8 @@ class Cloud {
 
   std::vector<int> sample_indices_;
   Eigen::Matrix3Xd samples_;
+
+  bool verbose_;
 };
 
 }  // namespace util

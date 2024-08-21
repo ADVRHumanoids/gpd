@@ -8,8 +8,8 @@
 namespace gpd {
 namespace util {
 
-Cloud::Cloud()
-    : cloud_original_(new PointCloudRGB), cloud_processed_(new PointCloudRGB) {
+Cloud::Cloud(bool verbose)
+    : cloud_original_(new PointCloudRGB), cloud_processed_(new PointCloudRGB), verbose_(verbose) {
   view_points_.resize(3, 1);
   view_points_ << 0.0, 0.0, 0.0;
   sample_indices_.resize(0);
@@ -19,7 +19,7 @@ Cloud::Cloud()
 
 Cloud::Cloud(const PointCloudRGB::Ptr &cloud,
              const Eigen::MatrixXi &camera_source,
-             const Eigen::Matrix3Xd &view_points)
+             const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(new PointCloudRGB),
       cloud_original_(new PointCloudRGB),
       camera_source_(camera_source),
@@ -34,11 +34,12 @@ Cloud::Cloud(const PointCloudRGB::Ptr &cloud,
 
 Cloud::Cloud(const PointCloudPointNormal::Ptr &cloud,
              const Eigen::MatrixXi &camera_source,
-             const Eigen::Matrix3Xd &view_points)
+             const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(new PointCloudRGB),
       cloud_original_(new PointCloudRGB),
       camera_source_(camera_source),
-      view_points_(view_points) {
+      view_points_(view_points),
+      verbose_(verbose) {
   sample_indices_.resize(0);
   samples_.resize(3, 0);
   normals_.resize(3, 0);
@@ -48,10 +49,11 @@ Cloud::Cloud(const PointCloudPointNormal::Ptr &cloud,
 }
 
 Cloud::Cloud(const PointCloudPointNormal::Ptr &cloud, int size_left_cloud,
-             const Eigen::Matrix3Xd &view_points)
+             const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(new PointCloudRGB),
       cloud_original_(new PointCloudRGB),
-      view_points_(view_points) {
+      view_points_(view_points),
+      verbose_(verbose) {
   sample_indices_.resize(0);
   samples_.resize(3, 0);
 
@@ -80,10 +82,11 @@ Cloud::Cloud(const PointCloudPointNormal::Ptr &cloud, int size_left_cloud,
 }
 
 Cloud::Cloud(const PointCloudRGB::Ptr &cloud, int size_left_cloud,
-             const Eigen::Matrix3Xd &view_points)
+             const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(cloud),
       cloud_original_(cloud),
-      view_points_(view_points) {
+      view_points_(view_points),
+      verbose_(verbose) {
   sample_indices_.resize(0);
   samples_.resize(3, 0);
   normals_.resize(3, 0);
@@ -103,10 +106,11 @@ Cloud::Cloud(const PointCloudRGB::Ptr &cloud, int size_left_cloud,
   }
 }
 
-Cloud::Cloud(const std::string &filename, const Eigen::Matrix3Xd &view_points)
+Cloud::Cloud(const std::string &filename, const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(new PointCloudRGB),
       cloud_original_(new PointCloudRGB),
-      view_points_(view_points) {
+      view_points_(view_points),
+      verbose_(verbose) {
   sample_indices_.resize(0);
   samples_.resize(3, 0);
   normals_.resize(3, 0);
@@ -119,10 +123,11 @@ Cloud::Cloud(const std::string &filename, const Eigen::Matrix3Xd &view_points)
 
 Cloud::Cloud(const std::string &filename_left,
              const std::string &filename_right,
-             const Eigen::Matrix3Xd &view_points)
+             const Eigen::Matrix3Xd &view_points, bool verbose)
     : cloud_processed_(new PointCloudRGB),
       cloud_original_(new PointCloudRGB),
-      view_points_(view_points) {
+      view_points_(view_points),
+      verbose_(verbose) {
   sample_indices_.resize(0);
   samples_.resize(3, 0);
   normals_.resize(3, 0);
@@ -159,7 +164,7 @@ void Cloud::removeNans() {
     eifilter.setInputCloud(cloud_processed_);
     eifilter.setIndices(inliers);
     eifilter.filter(*cloud_processed_);
-    printf("Cloud after removing NANs: %zu\n", cloud_processed_->size());
+    if (verbose_) printf("Cloud after removing NANs: %zu\n", cloud_processed_->size());
   }
 }
 
@@ -169,7 +174,7 @@ void Cloud::removeStatisticalOutliers() {
   sor.setMeanK(50);
   sor.setStddevMulThresh(1.0);
   sor.filter(*cloud_processed_);
-  printf("Cloud after removing statistical outliers: %zu\n",
+  if (verbose_) printf("Cloud after removing statistical outliers: %zu\n",
          cloud_processed_->size());
 }
 
@@ -194,8 +199,8 @@ void Cloud::refineNormals(int k) {
 
   Eigen::MatrixXf diff =
       normals_refined.getMatrixXfMap() - pcl_normals.getMatrixXfMap();
-  printf("Refining surface normals ...\n");
-  printf(" mean: %.3f, max: %.3f, sum: %.3f\n", diff.mean(), diff.maxCoeff(),
+  if (verbose_) printf("Refining surface normals ...\n");
+  if (verbose_) printf(" mean: %.3f, max: %.3f, sum: %.3f\n", diff.mean(), diff.maxCoeff(),
          diff.sum());
 
   normals_ = normals_refined.getMatrixXfMap()
@@ -217,7 +222,7 @@ void Cloud::filterWorkspace(const std::vector<double> &workspace) {
     }
 
     sample_indices_ = indices_to_keep;
-    std::cout << sample_indices_.size()
+    if (verbose_) std::cout << sample_indices_.size()
               << " sample indices left after workspace filtering \n";
   }
 
@@ -234,7 +239,7 @@ void Cloud::filterWorkspace(const std::vector<double> &workspace) {
     }
 
     samples_ = EigenUtils::sliceMatrix(samples_, indices_to_keep);
-    std::cout << samples_.cols()
+    if (verbose_) std::cout << samples_.cols()
               << " samples left after workspace filtering \n";
   }
 
@@ -344,7 +349,7 @@ void Cloud::voxelizeCloud(float cell_size) {
     normals_ = normals;
   }
 
-  printf("Voxelized cloud: %zu\n", cloud_processed_->size());
+  if (verbose_) printf("Voxelized cloud: %zu\n", cloud_processed_->size());
 }
 
 void Cloud::subsample(int num_samples) {
@@ -373,7 +378,7 @@ void Cloud::subsampleSamples(int num_samples) {
   if (num_samples == 0 || num_samples >= samples_.cols()) {
     return;
   } else {
-    std::cout << "Using " << num_samples << " out of " << samples_.cols()
+    if (verbose_) std::cout << "Using " << num_samples << " out of " << samples_.cols()
               << " available samples.\n";
     std::vector<int> seq(samples_.cols());
     for (int i = 0; i < seq.size(); i++) {
@@ -387,7 +392,7 @@ void Cloud::subsampleSamples(int num_samples) {
     }
     samples_ = subsamples;
 
-    std::cout << "Subsampled " << samples_.cols()
+    if (verbose_) std::cout << "Subsampled " << samples_.cols()
               << " samples at random uniformly.\n";
   }
 }
@@ -406,7 +411,7 @@ void Cloud::subsampleSampleIndices(int num_samples) {
 
 void Cloud::sampleAbovePlane() {
   double t0 = omp_get_wtime();
-  printf("Sampling above plane ...\n");
+  if (verbose_) printf("Sampling above plane ...\n");
   std::vector<int> indices(0);
   pcl::SACSegmentation<pcl::PointXYZRGBA> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -426,12 +431,12 @@ void Cloud::sampleAbovePlane() {
   }
   if (indices.size() > 0) {
     sample_indices_ = indices;
-    printf(" Plane fit succeeded. %zu samples above plane.\n",
+    if (verbose_) printf(" Plane fit succeeded. %zu samples above plane.\n",
            sample_indices_.size());
   } else {
     printf(" Plane fit failed. Using entire point cloud ...\n");
   }
-  std::cout << " runtime (plane fit): " << omp_get_wtime() - t0 << "\n";
+  if (verbose_) std::cout << " runtime (plane fit): " << omp_get_wtime() - t0 << "\n";
 }
 
 void Cloud::writeNormalsToFile(const std::string &filename,
@@ -450,7 +455,7 @@ void Cloud::writeNormalsToFile(const std::string &filename,
 
 void Cloud::calculateNormals(int num_threads, double radius) {
   double t_gpu = omp_get_wtime();
-  printf("Calculating surface normals ...\n");
+  if (verbose_) printf("Calculating surface normals ...\n");
   std::string mode;
 
 #if defined(USE_PCL_GPU)
@@ -461,16 +466,16 @@ void Cloud::calculateNormals(int num_threads, double radius) {
     calculateNormalsOrganized();
     mode = "integral images";
   } else {
-    printf("num_threads: %d\n", num_threads);
+    if (verbose_) printf("num_threads: %d\n", num_threads);
     calculateNormalsOMP(num_threads, radius);
     mode = "OpenMP";
   }
 #endif
 
   t_gpu = omp_get_wtime() - t_gpu;
-  printf("Calculated %zu surface normals in %3.4fs (mode: %s).\n",
+  if (verbose_) printf("Calculated %zu surface normals in %3.4fs (mode: %s).\n",
          normals_.cols(), t_gpu, mode.c_str());
-  printf(
+  if (verbose_) printf(
       "Reversing direction of normals that do not point to at least one camera "
       "...\n");
   reverseNormals();
@@ -482,7 +487,7 @@ void Cloud::calculateNormalsOrganized() {
     return;
   }
 
-  std::cout << "Using integral images for surface normals estimation ...\n";
+  if (verbose_) std::cout << "Using integral images for surface normals estimation ...\n";
   pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(
       new pcl::PointCloud<pcl::Normal>);
   pcl::IntegralImageNormalEstimation<pcl::PointXYZRGBA, pcl::Normal> ne;
@@ -516,9 +521,9 @@ void Cloud::calculateNormalsOMP(int num_threads, double radius) {
                            view_points_(2, i));
     double t0 = omp_get_wtime();
     estimator.compute(*normals_cloud);
-    printf(" runtime(computeNormals): %3.4f\n", omp_get_wtime() - t0);
+    if (verbose_) printf(" runtime(computeNormals): %3.4f\n", omp_get_wtime() - t0);
     normals_list[i] = normals_cloud;
-    printf("camera: %d, #indices: %d, #normals: %d \n", i,
+    if (verbose_) printf("camera: %d, #indices: %d, #normals: %d \n", i,
            (int)indices[i].size(), (int)normals_list[i]->size());
   }
 
@@ -599,8 +604,8 @@ void Cloud::reverseNormals() {
     }
   }
 
-  std::cout << " reversed " << c << " normals\n";
-  std::cout << " runtime (reverse normals): " << omp_get_wtime() - t1 << "\n";
+  if (verbose_) std::cout << " reversed " << c << " normals\n";
+  if (verbose_) std::cout << " runtime (reverse normals): " << omp_get_wtime() - t1 << "\n";
 }
 
 std::vector<std::vector<int>> Cloud::convertCameraSourceMatrixToLists() {
@@ -644,15 +649,15 @@ PointCloudRGB::Ptr Cloud::loadPointCloudFromFile(
     const std::string &filename) const {
   PointCloudRGB::Ptr cloud(new PointCloudRGB);
   std::string extension = filename.substr(filename.size() - 3);
-  printf("extension: %s\n", extension.c_str());
+  if (verbose_) printf("extension: %s\n", extension.c_str());
 
   if (extension == "pcd" &&
       pcl::io::loadPCDFile<pcl::PointXYZRGBA>(filename, *cloud) == -1) {
-    printf("Couldn't read PCD file: %s\n", filename.c_str());
+    if (verbose_) printf("Couldn't read PCD file: %s\n", filename.c_str());
     cloud->points.resize(0);
   } else if (extension == "ply" &&
              pcl::io::loadPLYFile<pcl::PointXYZRGBA>(filename, *cloud) == -1) {
-    printf("Couldn't read PLY file: %s\n", filename.c_str());
+    if (verbose_) printf("Couldn't read PLY file: %s\n", filename.c_str());
     cloud->points.resize(0);
   }
 

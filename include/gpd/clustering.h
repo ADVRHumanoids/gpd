@@ -66,7 +66,7 @@ class Clustering {
    */
   std::vector<std::unique_ptr<candidate::Hand>> findClusters(
       const std::vector<std::unique_ptr<candidate::Hand>> &hand_list,
-      bool remove_inliers = false);
+      bool remove_inliers = false, bool verbose = true);
 
   /**
    * \brief Return the minimum number of cluster inliers.

@@ -31,9 +31,9 @@ std::vector<std::unique_ptr<HandSet>> HandSearch::searchHands(
   kdtree.setInputCloud(cloud);
 
   // 1. Estimate local reference frames.
-  std::cout << "Estimating local reference frames ...\n";
+  if (params_.verbose_) std::cout << "Estimating local reference frames ...\n";
   std::vector<LocalFrame> frames;
-  FrameEstimator frame_estimator(params_.num_threads_);
+  FrameEstimator frame_estimator(params_.num_threads_, params_.verbose_);
   if (cloud_cam.getSamples().cols() > 0) {  // use samples
     frames = frame_estimator.calculateLocalFrames(
         cloud_cam, cloud_cam.getSamples(), params_.nn_radius_frames_, kdtree);
@@ -53,12 +53,12 @@ std::vector<std::unique_ptr<HandSet>> HandSearch::searchHands(
   }
 
   // 2. Evaluate possible hand placements.
-  std::cout << "Finding hand poses ...\n";
+  if (params_.verbose_) std::cout << "Finding hand poses ...\n";
   std::vector<std::unique_ptr<HandSet>> hand_set_list =
       evalHands(cloud_cam, frames, kdtree);
 
   const double t2 = omp_get_wtime();
-  std::cout << "====> HAND SEARCH TIME: " << t2 - t0_total << std::endl;
+  if (params_.verbose_) std::cout << "====> HAND SEARCH TIME: " << t2 - t0_total << std::endl;
 
   return hand_set_list;
 }
@@ -181,7 +181,7 @@ std::vector<std::unique_ptr<candidate::HandSet>> HandSearch::evalHands(
     }
   }
 
-  printf("Found %d hand sets in %3.2fs\n", (int)hand_set_list.size(),
+  if (params_.verbose_) printf("Found %d hand sets in %3.2fs\n", (int)hand_set_list.size(),
          omp_get_wtime() - t1);
 
   return hand_set_list;

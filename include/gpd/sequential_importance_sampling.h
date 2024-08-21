@@ -138,6 +138,8 @@ class SequentialImportanceSampling {
   double thresh_rad_;
 
   int num_threads_;  ///< number of CPU threads used in grasp detection
+
+  bool verbose_;
 };
 
 }  // namespace gpd

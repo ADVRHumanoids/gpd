@@ -29,7 +29,7 @@ std::vector<LocalFrame> FrameEstimator::calculateLocalFrames(
   }
 
   double t2 = omp_get_wtime();
-  printf("Estimated %zu frames in %3.4fs.\n", frames_out.size(), t2 - t1);
+  if (verbose_) printf("Estimated %zu frames in %3.4fs.\n", frames_out.size(), t2 - t1);
 
   return frames_out;
 }
@@ -58,7 +58,7 @@ std::vector<LocalFrame> FrameEstimator::calculateLocalFrames(
   }
 
   double t2 = omp_get_wtime();
-  printf("Estimated %zu frames in %3.4fs.\n", frames_out.size(), t2 - t1);
+  if (verbose_) printf("Estimated %zu frames in %3.4fs.\n", frames_out.size(), t2 - t1);
 
   return frames_out;
 }

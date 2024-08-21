@@ -79,6 +79,7 @@ class CandidatesGenerator {
     int num_samples_;       ///< the number of samples to be used in the search
     int num_threads_;  ///< the number of CPU threads to be used in the search
     std::vector<double> workspace_;  ///< the robot's workspace
+    bool verbose_;
   };
 
   /**

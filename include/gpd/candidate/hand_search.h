@@ -90,6 +90,8 @@ class HandSearch {
     double friction_coeff_;  ///< angle of friction cone in degrees
     int min_viable_;  ///< minimum number of points required to be antipodal
 
+    bool verbose_;
+
     HandGeometry hand_geometry_;  ///< robot hand geometry
   };
 

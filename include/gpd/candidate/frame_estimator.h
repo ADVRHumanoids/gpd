@@ -61,7 +61,7 @@ class FrameEstimator {
    * \brief Constructor.
    * \param num_threads the number of CPU threads to be used
    */
-  FrameEstimator(int num_threads) : num_threads_(num_threads) {}
+  FrameEstimator(int num_threads, bool verbose=true) : num_threads_(num_threads), verbose_(verbose) {}
 
   /**
    * \brief Calculate local reference frames given a list of point cloud
@@ -110,6 +110,8 @@ class FrameEstimator {
 
   int num_threads_;  ///< number of CPU threads to be used for calculating local
                      /// reference frames
+
+  bool verbose_;
 };
 
 }  // namespace candidate

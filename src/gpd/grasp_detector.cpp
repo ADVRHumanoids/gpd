@@ -30,6 +30,8 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
       config_file.getValueOfKey<bool>("plot_clustered_grasps", false);
   plot_selected_grasps_ =
       config_file.getValueOfKey<bool>("plot_selected_grasps", false);
+  verbose_ = 
+    config_file.getValueOfKey<bool>("verbose", true);
   printf("============ PLOTTING ========================\n");
   printf("plot_normals: %s\n", plot_normals_ ? "true" : "false");
   printf("plot_samples %s\n", plot_samples_ ? "true" : "false");
@@ -63,6 +65,8 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
       config_file.getValueOfKey<int>("refine_normals_k", 0);
   generator_params.workspace_ =
       config_file.getValueOfKeyAsStdVectorDouble("workspace", "-1 1 -1 1 -1 1");
+  generator_params.verbose_ = 
+      config_file.getValueOfKey<bool>("verbose", true);
 
   candidate::HandSearch::Parameters hand_search_params;
   hand_search_params.hand_geometry_ = hand_geom;
@@ -84,6 +88,8 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
       config_file.getValueOfKey<double>("friction_coeff", 20.0);
   hand_search_params.min_viable_ =
       config_file.getValueOfKey<int>("min_viable", 6);
+  hand_search_params.verbose_ = 
+      config_file.getValueOfKey<bool>("verbose", true);
   candidates_generator_ = std::make_unique<candidate::CandidatesGenerator>(
       generator_params, hand_search_params);
 
@@ -152,7 +158,7 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
   // classification).
   image_generator_ = std::make_unique<descriptor::ImageGenerator>(
       image_geom, hand_search_params.num_threads_,
-      hand_search_params.num_orientations_, false, remove_plane);
+      hand_search_params.num_orientations_, false, remove_plane, verbose_);
 
   // Read grasp filtering parameters based on robot workspace and gripper width.
   workspace_grasps_ = config_file.getValueOfKeyAsStdVectorDouble(
@@ -223,7 +229,7 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
   double t0_candidates = omp_get_wtime();
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list =
       candidates_generator_->generateGraspCandidateSets(cloud);
-  printf("Generated %zu hand sets.\n", hand_set_list.size());
+  if (verbose_) printf("Generated %zu hand sets.\n", hand_set_list.size());
   if (hand_set_list.size() == 0) {
     return hands_out;
   }
@@ -283,11 +289,11 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
   double t0_cluster = omp_get_wtime();
   std::vector<std::unique_ptr<candidate::Hand>> clusters;
   if (cluster_grasps_) {
-    clusters = clustering_->findClusters(hands);
-    printf("Found %d clusters.\n", (int)clusters.size());
+    clusters = clustering_->findClusters(hands, false, verbose_);
+    if (verbose_) printf("Found %d clusters.\n", (int)clusters.size());
     if (clusters.size() <= 3) {
-      printf(
-          "Not enough clusters found! Adding all grasps from previous step.");
+      if (verbose_)  printf(
+          "Not enough clusters found! Adding all grasps from previous step.\n");
       for (int i = 0; i < hands.size(); i++) {
         clusters.push_back(std::move(hands[i]));
       }
@@ -303,21 +309,24 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
 
   // 7. Sort grasps by their score.
   std::sort(clusters.begin(), clusters.end(), isScoreGreater);
-  printf("======== Selected grasps ========\n");
+  if (verbose_) printf("======== Selected grasps ========\n");
   for (int i = 0; i < clusters.size(); i++) {
-    std::cout << "Grasp " << i << ": " << clusters[i]->getScore() << "\n";
+    if (verbose_) std::cout << "Grasp " << i << ": " << clusters[i]->getScore() << "\n";
   }
-  printf("Selected the %d best grasps.\n", (int)clusters.size());
-  double t_total = omp_get_wtime() - t0_total;
 
-  printf("======== RUNTIMES ========\n");
-  printf(" 1. Candidate generation: %3.4fs\n", t_candidates);
-  printf(" 2. Descriptor extraction: %3.4fs\n", t_images);
-  printf(" 3. Classification: %3.4fs\n", t_classify);
-  // printf(" Filtering: %3.4fs\n", t_filter);
-  // printf(" Clustering: %3.4fs\n", t_cluster);
-  printf("==========\n");
-  printf(" TOTAL: %3.4fs\n", t_total);
+  if (verbose_) {
+    printf("Selected the %d best grasps.\n", (int)clusters.size());
+    double t_total = omp_get_wtime() - t0_total;
+
+    printf("======== RUNTIMES ========\n");
+    printf(" 1. Candidate generation: %3.4fs\n", t_candidates);
+    printf(" 2. Descriptor extraction: %3.4fs\n", t_images);
+    printf(" 3. Classification: %3.4fs\n", t_classify);
+    // printf(" Filtering: %3.4fs\n", t_filter);
+    // printf(" Clustering: %3.4fs\n", t_cluster);
+    printf("==========\n");
+    printf(" TOTAL: %3.4fs\n", t_total);
+  }
 
   if (plot_selected_grasps_) {
     plotter_->plotFingers3D(clusters, cloud.getCloudOriginal(),
@@ -337,7 +346,7 @@ GraspDetector::filterGraspsWorkspace(
     const std::vector<double> &workspace) const {
   int remaining = 0;
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
-  printf("Filtering grasps outside of workspace ...\n");
+  if (verbose_) printf("Filtering grasps outside of workspace ...\n");
 
   const candidate::HandGeometry &hand_geometry =
       candidates_generator_->getHandSearchParams().hand_geometry_;
@@ -391,7 +400,7 @@ GraspDetector::filterGraspsWorkspace(
     }
   }
 
-  printf("Number of grasp candidates within workspace and gripper width: %d\n",
+  if (verbose_) printf("Number of grasp candidates within workspace and gripper width: %d\n",
          remaining);
 
   return hand_set_list_out;
@@ -404,7 +413,7 @@ GraspDetector::generateGraspCandidates(const util::Cloud &cloud) {
 
 std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::selectGrasps(
     std::vector<std::unique_ptr<candidate::Hand>> &hands) const {
-  printf("Selecting the %d highest scoring grasps ...\n", num_selected_);
+  if (verbose_) printf("Selecting the %d highest scoring grasps ...\n", num_selected_);
 
   int middle = std::min((int)hands.size(), num_selected_);
   std::partial_sort(hands.begin(), hands.begin() + middle, hands.end(),
@@ -413,7 +422,7 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::selectGrasps(
 
   for (int i = 0; i < middle; i++) {
     hands_out.push_back(std::move(hands[i]));
-    printf(" grasp #%d, score: %3.4f\n", i, hands_out[i]->getScore());
+    if (verbose_) printf(" grasp #%d, score: %3.4f\n", i, hands_out[i]->getScore());
   }
 
   return hands_out;
@@ -449,7 +458,7 @@ GraspDetector::filterGraspsDirection(
     }
   }
 
-  printf("Number of grasp candidates with correct approach direction: %d\n",
+  if (verbose_) printf("Number of grasp candidates with correct approach direction: %d\n",
          remaining);
 
   return hand_set_list_out;
@@ -485,7 +494,7 @@ bool GraspDetector::createGraspImages(
   // 1. Generate grasp candidates.
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list =
       candidates_generator_->generateGraspCandidateSets(cloud);
-  printf("Generated %zu hand sets.\n", hand_set_list.size());
+  if (verbose_) printf("Generated %zu hand sets.\n", hand_set_list.size());
   if (hand_set_list.size() == 0) {
     hands_out.resize(0);
     images_out.resize(0);
