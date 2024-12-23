@@ -77,7 +77,11 @@ class GraspDetector {
    * \return list of grasps
    */
   std::vector<std::unique_ptr<candidate::Hand>> detectGrasps(
-      const util::Cloud &cloud);
+      const util::Cloud &cloud,
+      bool filter_approach_direction = false,
+      const Eigen::Vector3d& direction = Eigen::Vector3d::Zero(), 
+      const double& thresh_rad = 0.0
+      );
 
   /**
    * \brief Preprocess the point cloud.

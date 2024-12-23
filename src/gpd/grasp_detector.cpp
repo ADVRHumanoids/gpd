@@ -196,7 +196,7 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
 }
 
 std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
-    const util::Cloud &cloud) {
+    const util::Cloud &cloud, bool filter_approach_direction, const Eigen::Vector3d& direction, const double& thresh_rad) {
   double t0_total = omp_get_wtime();
   std::vector<std::unique_ptr<candidate::Hand>> hands_out;
 
@@ -250,14 +250,25 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
     plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                             "Filtered Grasps (Aperture, Workspace)", hand_geom);
   }
-  if (filter_approach_direction_) {
+
+  if (filter_approach_direction) { //from function argument, overwrites conf file
+
+    hand_set_list_filtered =
+        filterGraspsDirection(hand_set_list_filtered, direction, thresh_rad);
+    if (plot_filtered_candidates_) {
+      plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
+                              "Filtered Grasps (Approach)", hand_geom);
+    }
+
+  } else if (filter_approach_direction_ ) { //from conf file
     hand_set_list_filtered =
         filterGraspsDirection(hand_set_list_filtered, direction_, thresh_rad_);
     if (plot_filtered_candidates_) {
       plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                               "Filtered Grasps (Approach)", hand_geom);
     }
-  }
+  } 
+
   double t_filter = omp_get_wtime() - t0_filter;
   if (hand_set_list_filtered.size() == 0) {
     return hands_out;
