@@ -80,8 +80,11 @@ class GraspDetector {
       const util::Cloud &cloud,
       bool filter_approach_direction = false,
       const Eigen::Vector3d& direction = Eigen::Vector3d::Zero(), 
-      const double& thresh_rad = 0.0
-      );
+      const double& thresh_rad = 0.0,
+      bool filter_approach_position = false,
+      const Eigen::Vector3d& thresh_position_upper = Eigen::Vector3d::Identity(),
+      const Eigen::Vector3d& thresh_position_lower = Eigen::Vector3d::Identity() 
+    );
 
   /**
    * \brief Preprocess the point cloud.
@@ -101,6 +104,12 @@ class GraspDetector {
       const std::vector<double> &workspace) const;
 
   /**
+   */
+std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsPosition(
+    std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
+    const Eigen::Vector3d& thresh_position_upper, const Eigen::Vector3d& thresh_position_lower);
+
+  /**
    * Filter grasps based on their approach direction.
    * \param hand_set_list list of grasp candidate sets
    * \param direction the direction used for filtering
@@ -109,7 +118,7 @@ class GraspDetector {
    */
   std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsDirection(
       std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-      const Eigen::Vector3d &direction, const double thresh_rad);
+      const Eigen::Vector3d &direction, const double &thresh_rad);
 
   /**
    * \brief Generate grasp candidates.

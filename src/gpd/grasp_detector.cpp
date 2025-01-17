@@ -196,7 +196,9 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
 }
 
 std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
-    const util::Cloud &cloud, bool filter_approach_direction, const Eigen::Vector3d& direction, const double& thresh_rad) {
+    const util::Cloud &cloud, bool filter_approach_direction, const Eigen::Vector3d& direction, const double& thresh_rad,
+    bool filter_approach_position,
+    const Eigen::Vector3d& position_upper, const Eigen::Vector3d& position_lower) {
   double t0_total = omp_get_wtime();
   std::vector<std::unique_ptr<candidate::Hand>> hands_out;
 
@@ -249,6 +251,15 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
   if (plot_filtered_candidates_) {
     plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                             "Filtered Grasps (Aperture, Workspace)", hand_geom);
+  }
+
+  if (filter_approach_position) {
+    hand_set_list_filtered =
+        filterGraspsPosition(hand_set_list_filtered, position_upper, position_lower);
+    if (plot_filtered_candidates_) {
+      plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
+                              "Filtered (position) Grasps (Approach)", hand_geom);
+    }
   }
 
   if (filter_approach_direction) { //from function argument, overwrites conf file
@@ -440,9 +451,48 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::selectGrasps(
 }
 
 std::vector<std::unique_ptr<candidate::HandSet>>
+GraspDetector::filterGraspsPosition(
+    std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
+    const Eigen::Vector3d& position_upper, const Eigen::Vector3d& position_lower) {
+
+  std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
+  int remaining = 0;
+
+  for (int i = 0; i < hand_set_list.size(); i++) {
+    const std::vector<std::unique_ptr<candidate::Hand>> &hands =
+        hand_set_list[i]->getHands();
+    Eigen::Array<bool, 1, Eigen::Dynamic> is_valid =
+        hand_set_list[i]->getIsValid();
+
+    for (int j = 0; j < hands.size(); j++) {
+      if (is_valid(j)) {
+        Eigen::Vector3d pos = hands[j]->getPosition();
+        if (pos(0) > position_upper(0) || pos(1) > position_upper(1) || pos(2) > position_upper(2) ||
+            pos(0) < position_lower(0) || pos(1) < position_lower(1) || pos(2) < position_lower(2) ) 
+        {
+          is_valid(j) = false;
+        } else {
+          remaining++;
+        }
+      }
+    }
+
+    if (is_valid.any()) {
+      hand_set_list_out.push_back(std::move(hand_set_list[i]));
+      hand_set_list_out[hand_set_list_out.size() - 1]->setIsValid(is_valid);
+    }
+  }
+
+  if (verbose_) printf("Number of grasp candidates with correct approach position: %d\n",
+         remaining);
+
+  return hand_set_list_out;
+}
+
+std::vector<std::unique_ptr<candidate::HandSet>>
 GraspDetector::filterGraspsDirection(
     std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-    const Eigen::Vector3d &direction, const double thresh_rad) {
+    const Eigen::Vector3d &direction, const double& thresh_rad) {
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
   int remaining = 0;
 
