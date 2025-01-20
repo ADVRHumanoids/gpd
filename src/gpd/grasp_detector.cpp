@@ -196,9 +196,12 @@ GraspDetector::GraspDetector(const std::string &config_filename) {
 }
 
 std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
-    const util::Cloud &cloud, bool filter_approach_direction, const Eigen::Vector3d& direction, const double& thresh_rad,
+    const util::Cloud &cloud, 
+    bool filter_approach_direction, const std::vector<std::array<double,3>>& directions, const double& thresh_rad,
     bool filter_approach_position,
-    const Eigen::Vector3d& position_upper, const Eigen::Vector3d& position_lower) {
+    const std::array<double,3>& position_upper, const std::array<double,3>& position_lower) 
+{
+
   double t0_total = omp_get_wtime();
   std::vector<std::unique_ptr<candidate::Hand>> hands_out;
 
@@ -263,17 +266,26 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
   }
 
   if (filter_approach_direction) { //from function argument, overwrites conf file
+    std::vector<Eigen::Vector3d> directions_eig;
+    for (const auto& dir: directions) {
+      Eigen::Vector3d dir_eig(dir[0], dir[1], dir[2]);
+      directions_eig.push_back(dir_eig);
+    }
 
     hand_set_list_filtered =
-        filterGraspsDirection(hand_set_list_filtered, direction, thresh_rad);
+        filterGraspsDirection(hand_set_list_filtered, directions_eig, thresh_rad);
     if (plot_filtered_candidates_) {
       plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                               "Filtered Grasps (Approach)", hand_geom);
     }
 
   } else if (filter_approach_direction_ ) { //from conf file
+    std::vector<Eigen::Vector3d> directions_eig;
+    Eigen::Vector3d dir_eig(direction_[0], direction_[1], direction_[2]);
+    directions_eig.push_back(dir_eig);
+
     hand_set_list_filtered =
-        filterGraspsDirection(hand_set_list_filtered, direction_, thresh_rad_);
+        filterGraspsDirection(hand_set_list_filtered, directions_eig, thresh_rad_);
     if (plot_filtered_candidates_) {
       plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                               "Filtered Grasps (Approach)", hand_geom);
@@ -453,7 +465,7 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::selectGrasps(
 std::vector<std::unique_ptr<candidate::HandSet>>
 GraspDetector::filterGraspsPosition(
     std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-    const Eigen::Vector3d& position_upper, const Eigen::Vector3d& position_lower) {
+    const std::array<double,3>& position_upper, const std::array<double,3>& position_lower) {
 
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
   int remaining = 0;
@@ -467,8 +479,8 @@ GraspDetector::filterGraspsPosition(
     for (int j = 0; j < hands.size(); j++) {
       if (is_valid(j)) {
         Eigen::Vector3d pos = hands[j]->getPosition();
-        if (pos(0) > position_upper(0) || pos(1) > position_upper(1) || pos(2) > position_upper(2) ||
-            pos(0) < position_lower(0) || pos(1) < position_lower(1) || pos(2) < position_lower(2) ) 
+        if (pos(0) > position_upper.at(0) || pos(1) > position_upper.at(1) || pos(2) > position_upper.at(2) ||
+            pos(0) < position_lower.at(0) || pos(1) < position_lower.at(1) || pos(2) < position_lower.at(2) ) 
         {
           is_valid(j) = false;
         } else {
@@ -492,7 +504,7 @@ GraspDetector::filterGraspsPosition(
 std::vector<std::unique_ptr<candidate::HandSet>>
 GraspDetector::filterGraspsDirection(
     std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-    const Eigen::Vector3d &direction, const double& thresh_rad) {
+    const std::vector<Eigen::Vector3d> &directions, const double& thresh_rad) {
   std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
   int remaining = 0;
 
@@ -504,11 +516,14 @@ GraspDetector::filterGraspsDirection(
 
     for (int j = 0; j < hands.size(); j++) {
       if (is_valid(j)) {
-        double angle = acos(direction.transpose() * hands[j]->getApproach());
-        if (angle > thresh_rad) {
-          is_valid(j) = false;
-        } else {
-          remaining++;
+        is_valid(j) = false;
+        for (const auto& dir: directions) {
+          double angle = acos(dir.transpose() * hands[j]->getApproach());
+          if (angle < thresh_rad) { 
+            is_valid(j) = true;
+            remaining++;
+            break;
+          }
         }
       }
     }
@@ -519,7 +534,7 @@ GraspDetector::filterGraspsDirection(
     }
   }
 
-  if (verbose_) printf("Number of grasp candidates with correct approach direction: %d\n",
+  if (verbose_) printf("Number of grasp candidates with correct approach directions: %d\n",
          remaining);
 
   return hand_set_list_out;
@@ -574,7 +589,7 @@ bool GraspDetector::createGraspImages(
   }
   if (filter_approach_direction_) {
     hand_set_list_filtered =
-        filterGraspsDirection(hand_set_list_filtered, direction_, thresh_rad_);
+        filterGraspsDirection(hand_set_list_filtered, {direction_}, thresh_rad_);
     if (plot_filtered_candidates_) {
       plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
                               "Filtered Grasps (Approach)", hand_geom);

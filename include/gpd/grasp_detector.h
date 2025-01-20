@@ -79,11 +79,11 @@ class GraspDetector {
   std::vector<std::unique_ptr<candidate::Hand>> detectGrasps(
       const util::Cloud &cloud,
       bool filter_approach_direction = false,
-      const Eigen::Vector3d& direction = Eigen::Vector3d::Zero(), 
+      const std::vector<std::array<double,3>>& directions = {}, 
       const double& thresh_rad = 0.0,
       bool filter_approach_position = false,
-      const Eigen::Vector3d& thresh_position_upper = Eigen::Vector3d::Identity(),
-      const Eigen::Vector3d& thresh_position_lower = Eigen::Vector3d::Identity() 
+      const std::array<double,3>& position_upper = {99,99,99},
+      const std::array<double,3>& position_lower  = {-99,-99,-99}
     );
 
   /**
@@ -107,7 +107,7 @@ class GraspDetector {
    */
 std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsPosition(
     std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-    const Eigen::Vector3d& thresh_position_upper, const Eigen::Vector3d& thresh_position_lower);
+    const std::array<double,3>& position_upper, const std::array<double,3>& position_lower);
 
   /**
    * Filter grasps based on their approach direction.
@@ -118,7 +118,7 @@ std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsPosition(
    */
   std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsDirection(
       std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-      const Eigen::Vector3d &direction, const double &thresh_rad);
+      const std::vector<Eigen::Vector3d> &directions, const double &thresh_rad);
 
   /**
    * \brief Generate grasp candidates.

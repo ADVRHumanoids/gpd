@@ -89,7 +89,7 @@ SequentialImportanceSampling::detectGrasps(util::Cloud &cloud) {
 
   if (filter_approach_direction_) {
     hand_set_list = grasp_detector_->filterGraspsDirection(
-        hand_set_list, direction_, thresh_rad_);
+        hand_set_list, {direction_}, thresh_rad_);
     if (visualize_rounds_) {
       plotter.plotFingers3D(hand_set_list, cloud.getCloudOriginal(),
                             "Filtered Grasps (Approach)", hand_geom);
@@ -137,7 +137,7 @@ SequentialImportanceSampling::detectGrasps(util::Cloud &cloud) {
 
     if (filter_approach_direction_) {
       hand_set_list_new = grasp_detector_->filterGraspsDirection(
-          hand_set_list_new, direction_, thresh_rad_);
+          hand_set_list_new, {direction_}, thresh_rad_);
       if (visualize_steps_) {
         plotter.plotFingers3D(hand_set_list_new, cloud.getCloudOriginal(),
                               "Filtered Grasps (Approach)", hand_geom);
