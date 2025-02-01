@@ -86,6 +86,16 @@ class GraspDetector {
       const std::array<double,3>& position_lower  = {-99,-99,-99}
     );
 
+  std::vector<std::unique_ptr<candidate::Hand>> detectGrasps(
+    const util::Cloud &cloud, 
+    bool filter_approach_direction, 
+    const std::array<double,3>& thresh_magnitude_normalized_upper, 
+    const std::array<double,3>& thresh_magnitude_normalized_lower, 
+    bool filter_approach_position = false,
+    const std::array<double,3>& position_upper = {99,99,99},
+    const std::array<double,3>& position_lower  = {-99,-99,-99}
+  );
+
   /**
    * \brief Preprocess the point cloud.
    * \param cloud_cam the point cloud
@@ -118,7 +128,23 @@ std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsPosition(
    */
   std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsDirection(
       std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
-      const std::vector<Eigen::Vector3d> &directions, const double &thresh_rad);
+      const std::vector<Eigen::Vector3d> &directions, 
+      const double &thresh_rad);
+
+  /**
+   * Filter grasps based on their approach direction, alternative computation
+   * \param hand_set_list list of grasp candidate sets
+   * \param thresh_magnitude_normalized_upper the upper bound within the approach DIRECTION must be
+   * \param thresh_magnitude_normalized_lower the lower bound within the approach DIRECTION must be
+   * \param thresh_rad the angle in radians above which grasps are filtered
+   * \note Remembed that appraoch direction is normalized, thresholds must be as well. In practice they define
+   * an area of the surface of the unitary sphere. The ref frame should be the one of the point cloud given to gpd somewhere.
+   * \return list of grasps after filtering
+   */
+  std::vector<std::unique_ptr<candidate::HandSet>> filterGraspsDirection(
+    std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
+    const std::array<double,3>& thresh_magnitude_normalized_upper, 
+    const std::array<double,3>& thresh_magnitude_normalized_lower);
 
   /**
    * \brief Generate grasp candidates.

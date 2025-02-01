@@ -370,6 +370,166 @@ std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
   return clusters;
 }
 
+std::vector<std::unique_ptr<candidate::Hand>> GraspDetector::detectGrasps(
+    const util::Cloud &cloud, 
+    bool filter_approach_direction, 
+    const std::array<double,3>& thresh_magnitude_normalized_upper, 
+    const std::array<double,3>& thresh_magnitude_normalized_lower,
+    bool filter_approach_position,
+    const std::array<double,3>& position_upper, const std::array<double,3>& position_lower) 
+{
+
+  double t0_total = omp_get_wtime();
+  std::vector<std::unique_ptr<candidate::Hand>> hands_out;
+
+  const candidate::HandGeometry &hand_geom =
+      candidates_generator_->getHandSearchParams().hand_geometry_;
+
+  // Check if the point cloud is empty.
+  if (cloud.getCloudOriginal()->size() == 0) {
+    printf("ERROR: Point cloud is empty!");
+    hands_out.resize(0);
+    return hands_out;
+  }
+
+  // Plot samples/indices.
+  if (plot_samples_) {
+    if (cloud.getSamples().cols() > 0) {
+      plotter_->plotSamples(cloud.getSamples(), cloud.getCloudProcessed());
+    } else if (cloud.getSampleIndices().size() > 0) {
+      plotter_->plotSamples(cloud.getSampleIndices(),
+                            cloud.getCloudProcessed());
+    }
+  }
+
+  if (plot_normals_) {
+    std::cout << "Plotting normals for different camera sources\n";
+    plotter_->plotNormals(cloud);
+  }
+
+  // 1. Generate grasp candidates.
+  double t0_candidates = omp_get_wtime();
+  std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list =
+      candidates_generator_->generateGraspCandidateSets(cloud);
+  if (verbose_) printf("Generated %zu hand sets.\n", hand_set_list.size());
+  if (hand_set_list.size() == 0) {
+    return hands_out;
+  }
+  double t_candidates = omp_get_wtime() - t0_candidates;
+  if (plot_candidates_) {
+    plotter_->plotFingers3D(hand_set_list, cloud.getCloudOriginal(),
+                            "Grasp candidates", hand_geom);
+  }
+
+  // 2. Filter the candidates.
+  double t0_filter = omp_get_wtime();
+  std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_filtered =
+      filterGraspsWorkspace(hand_set_list, workspace_grasps_);
+  if (hand_set_list_filtered.size() == 0) {
+    return hands_out;
+  }
+  if (plot_filtered_candidates_) {
+    plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
+                            "Filtered Grasps (Aperture, Workspace)", hand_geom);
+  }
+
+  if (filter_approach_position) {
+    hand_set_list_filtered =
+        filterGraspsPosition(hand_set_list_filtered, position_upper, position_lower);
+    if (plot_filtered_candidates_) {
+      plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
+                              "Filtered (position) Grasps (Approach)", hand_geom);
+    }
+  }
+
+  if (filter_approach_direction) { //from function argument, overwrites conf file
+    hand_set_list_filtered =
+        filterGraspsDirection(hand_set_list_filtered, thresh_magnitude_normalized_upper, thresh_magnitude_normalized_lower);
+    if (plot_filtered_candidates_) {
+      plotter_->plotFingers3D(hand_set_list_filtered, cloud.getCloudOriginal(),
+                              "Filtered Grasps (Approach)", hand_geom);
+    }
+
+  } 
+
+  double t_filter = omp_get_wtime() - t0_filter;
+  if (hand_set_list_filtered.size() == 0) {
+    return hands_out;
+  }
+
+  // 3. Create grasp descriptors (images).
+  double t0_images = omp_get_wtime();
+  std::vector<std::unique_ptr<candidate::Hand>> hands;
+  std::vector<std::unique_ptr<cv::Mat>> images;
+  image_generator_->createImages(cloud, hand_set_list_filtered, images, hands);
+  double t_images = omp_get_wtime() - t0_images;
+
+  // 4. Classify the grasp candidates.
+  double t0_classify = omp_get_wtime();
+  std::vector<float> scores = classifier_->classifyImages(images);
+  for (int i = 0; i < hands.size(); i++) {
+    hands[i]->setScore(scores[i]);
+  }
+  double t_classify = omp_get_wtime() - t0_classify;
+
+  // 5. Select the <num_selected> highest scoring grasps.
+  hands = selectGrasps(hands);
+  if (plot_valid_grasps_) {
+    plotter_->plotFingers3D(hands, cloud.getCloudOriginal(), "Valid Grasps",
+                            hand_geom);
+  }
+
+  // 6. Cluster the grasps.
+  double t0_cluster = omp_get_wtime();
+  std::vector<std::unique_ptr<candidate::Hand>> clusters;
+  if (cluster_grasps_) {
+    clusters = clustering_->findClusters(hands, false, verbose_);
+    if (verbose_) printf("Found %d clusters.\n", (int)clusters.size());
+    if (clusters.size() <= 3) {
+      if (verbose_)  printf(
+          "Not enough clusters found! Adding all grasps from previous step.\n");
+      for (int i = 0; i < hands.size(); i++) {
+        clusters.push_back(std::move(hands[i]));
+      }
+    }
+    if (plot_clustered_grasps_) {
+      plotter_->plotFingers3D(clusters, cloud.getCloudOriginal(),
+                              "Clustered Grasps", hand_geom);
+    }
+  } else {
+    clusters = std::move(hands);
+  }
+  double t_cluster = omp_get_wtime() - t0_cluster;
+
+  // 7. Sort grasps by their score.
+  std::sort(clusters.begin(), clusters.end(), isScoreGreater);
+  if (verbose_) printf("======== Selected grasps ========\n");
+  for (int i = 0; i < clusters.size(); i++) {
+    if (verbose_) std::cout << "Grasp " << i << ": " << clusters[i]->getScore() << "\n";
+  }
+
+  if (verbose_) {
+    printf("Selected the %d best grasps.\n", (int)clusters.size());
+    double t_total = omp_get_wtime() - t0_total;
+
+    printf("======== RUNTIMES ========\n");
+    printf(" 1. Candidate generation: %3.4fs\n", t_candidates);
+    printf(" 2. Descriptor extraction: %3.4fs\n", t_images);
+    printf(" 3. Classification: %3.4fs\n", t_classify);
+    // printf(" Filtering: %3.4fs\n", t_filter);
+    // printf(" Clustering: %3.4fs\n", t_cluster);
+    printf("==========\n");
+    printf(" TOTAL: %3.4fs\n", t_total);
+  }
+
+  if (plot_selected_grasps_) {
+    plotter_->plotFingers3D(clusters, cloud.getCloudOriginal(),
+                            "Selected Grasps", hand_geom, false);
+  }
+
+  return clusters;
+}
+
 void GraspDetector::preprocessPointCloud(util::Cloud &cloud) {
   candidates_generator_->preprocessPointCloud(cloud);
 }
@@ -524,6 +684,47 @@ GraspDetector::filterGraspsDirection(
             remaining++;
             break;
           }
+        }
+      }
+    }
+
+    if (is_valid.any()) {
+      hand_set_list_out.push_back(std::move(hand_set_list[i]));
+      hand_set_list_out[hand_set_list_out.size() - 1]->setIsValid(is_valid);
+    }
+  }
+
+  if (verbose_) printf("Number of grasp candidates with correct approach directions: %d\n",
+         remaining);
+
+  return hand_set_list_out;
+}
+
+std::vector<std::unique_ptr<candidate::HandSet>>
+GraspDetector::filterGraspsDirection(
+    std::vector<std::unique_ptr<candidate::HandSet>> &hand_set_list,
+    const std::array<double,3>& thresh_magnitude_normalized_upper, 
+    const std::array<double,3>& thresh_magnitude_normalized_lower) {
+
+  std::vector<std::unique_ptr<candidate::HandSet>> hand_set_list_out;
+  int remaining = 0;
+
+  for (int i = 0; i < hand_set_list.size(); i++) {
+    const std::vector<std::unique_ptr<candidate::Hand>> &hands =
+        hand_set_list[i]->getHands();
+    Eigen::Array<bool, 1, Eigen::Dynamic> is_valid =
+        hand_set_list[i]->getIsValid();
+
+    for (int j = 0; j < hands.size(); j++) {
+      if (is_valid(j)) {
+        is_valid(j) = false;
+        const Eigen::Vector3d &approach = hands[j]->getApproach();
+        if (approach.x() > thresh_magnitude_normalized_lower.at(0) && approach.x() < thresh_magnitude_normalized_upper.at(0) &&
+            approach.y() > thresh_magnitude_normalized_lower.at(1) && approach.y() < thresh_magnitude_normalized_upper.at(1) && 
+            approach.z() > thresh_magnitude_normalized_lower.at(2) && approach.z() < thresh_magnitude_normalized_upper.at(2)) 
+        {
+          is_valid(j) = true;
+          remaining++;
         }
       }
     }
